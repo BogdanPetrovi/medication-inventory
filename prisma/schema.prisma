@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MedicationSchedules {
+  II 
+  III 
+  IV
+  V
+}
+
+enum MedicationUnits {
+  mg
+  ml 
+  mcg
+}
+
+enum UserRoles {
+  NURSE
+  WITNESS 
+  ADMIN
+}
+
+enum TransactionTypes {
+  CHECKOUT
+  RETURN 
+  WASTE
+}
+
+enum EntityTypes {
+  Medication
+  Transaction
+  User
+
+}
+
+model Medication {
+  id Int @id @default(autoincrement())
+  name String @unique
+  schedule MedicationSchedules
+  unit MedicationUnits
+  currentStockQuantity Int
+
+  transaction Transaction[]
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  email String @unique
+  name String
+  role UserRoles
+
+  nurseActions Transaction[] @relation("NurseTransactions")
+  witnessActions Transaction[] @relation("WitnessTransactions")
+  auditLog AuditLog[]
+}
+
+model Transaction {
+  id Int @id @default(autoincrement())
+  
+  medicationId Int
+  medication Medication @relation(fields: [medicationId], references: [id])
+  
+  nurseId Int
+  nurse User @relation("NurseTransactions", fields: [nurseId], references: [id])
+
+  witnessId Int
+  witness User @relation("WitnessTransactions", fields: [witnessId], references: [id])
+
+  type TransactionTypes
+
+  quantity Int
+  notes String?
+
+  timestamp DateTime @default(now())
+
+  @@unique([nurseId, witnessId])
+}
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+  action String
+  entityType EntityTypes
+  entityId Int
+
+  performedBy Int
+  user User @relation(fields: [performedBy], references: [id])
+
+  details Json
+  timestamp DateTime @default(now())
+}
