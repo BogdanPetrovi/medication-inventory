@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client"
-  output = "../generated/prisma"
+  output = "../src/generated/prisma"
 }
 
 datasource db {
@@ -42,7 +42,6 @@ enum EntityTypes {
   Medication
   Transaction
   User
-
 }
 
 model Medication {
@@ -84,8 +83,6 @@ model Transaction {
   notes String?
 
   timestamp DateTime @default(now())
-
-  @@unique([nurseId, witnessId])
 }
 
 model AuditLog {
