@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import prisma from "../services/prisma.js"
+import prisma from "../services/prisma/prisma.js"
 import { MedicationId, Schedules } from "../schemas/medications.js";
 import { Transaction, TransactionQuery } from "../schemas/transactions.js";
 import calculateNewQuantity from "../utils/calculateNewQuantity.js";
@@ -47,7 +47,7 @@ export const postTransaction = async (req: Request, res: Response) => {
     const transactionData = Transaction.parse(body)
    
     if(transactionData.nurseId === transactionData.witnessId)
-        throw new Error("Nurse id and witness has to be different", { cause: "400" })
+        throw new Error("Nurse id and witness id has to be different", { cause: "400" })
 
 
     const nurse = await prisma.user.findUnique({ where: { id: transactionData.nurseId } })
@@ -75,7 +75,10 @@ export const postTransaction = async (req: Request, res: Response) => {
                 id: transactionData.medicationId
             },
             data: {
-                currentStockQuantity: calculateNewQuantity({ transactionData, medication })
+                currentStockQuantity: calculateNewQuantity({ 
+                    type: transactionData.type, 
+                    quantity: transactionData.quantity, 
+                    currentQuantity: medication.currentStockQuantity })
             }
         })
     }
@@ -99,7 +102,10 @@ export const postTransaction = async (req: Request, res: Response) => {
             performedBy: nurse.id,
             details: {
                 oldStockQuantity: medication.currentStockQuantity,
-                newStockQuantity: calculateNewQuantity({ transactionData, medication }),
+                newStockQuantity: calculateNewQuantity({ 
+                    type: transactionData.type, 
+                    quantity: transactionData.quantity, 
+                    currentQuantity: medication.currentStockQuantity }),
                 unit: medication.unit,
                 nurseId: nurse.id,
                 witnessId: witness.id,
@@ -108,7 +114,7 @@ export const postTransaction = async (req: Request, res: Response) => {
         }
     })
 
-    return res.status(200).json({ message: "Successfully created transaction" })
+    return res.status(201).json({ message: "Successfully created transaction" })
 }
 
 export const getTransactions = async (req: Request, res: Response) => {

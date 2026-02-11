@@ -1,4 +1,4 @@
-import { MedicationSchedules } from "@prisma/client";
+import { MedicationSchedules } from "../generated/prisma/client.js";
 import z from "zod";
 
 export const Schedules = z.enum(

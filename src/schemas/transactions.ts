@@ -1,4 +1,4 @@
-import { TransactionTypes } from '@prisma/client'
+import { TransactionTypes } from '../generated/prisma/client.js'
 import { z } from 'zod'
 
 export const Transaction = z.object({

@@ -1,18 +1,17 @@
-import { Transaction, Medication } from "@prisma/client"
-
 type CalculateNewQuantityParams = {
-  transactionData: Pick<Transaction, "type" | "quantity">
-  medication: Pick<Medication, "currentStockQuantity">
+  type: string,
+  quantity: number,
+  currentQuantity: number
 }
 
-const calculateNewQuantity = ({ transactionData, medication,}: CalculateNewQuantityParams): number => {
-    if(transactionData.type === "CHECKOUT")
-        return medication.currentStockQuantity - transactionData.quantity
+const calculateNewQuantity = ({ type, quantity, currentQuantity}: CalculateNewQuantityParams): number => {
+    if(type === "CHECKOUT")
+        return currentQuantity - quantity
 
-    if(transactionData.type === "RETURN")
-        return medication.currentStockQuantity + transactionData.quantity
+    if(type === "RETURN")
+        return currentQuantity + quantity
 
-    return medication.currentStockQuantity
+    return currentQuantity
 }
 
 export default calculateNewQuantity
