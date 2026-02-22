@@ -2,19 +2,29 @@ import { Request, Response } from "express"
 import prisma from "../services/prisma/prisma.js"
 import { MedicationId, Schedules } from "../schemas/medications.js";
 import { Transaction, TransactionQuery } from "../schemas/transactions.js";
-import calculateNewQuantity from "../utils/calculateNewQuantity.js";
 import { EntityType } from "../schemas/auditlog.js";
+import { Pagination } from "../schemas/shared.js";
 
 export const getMedications = async (req: Request, res: Response) => {
-    const { schedule } = req.query;
-    if(!schedule){
-        const medications = await prisma.medication.findMany()
+    const query = req.query
+
+    const { limit, offset } = Pagination.parse(query)
+
+    if(!query.schedule){
+        const medications = await prisma.medication.findMany({
+            take: limit,
+            skip: offset,
+            orderBy: { id: "asc" }
+        })
         return res.status(200).json(medications)
     }
     
-    const parsedSchedule = Schedules.parse(schedule)
+    const parsedSchedule = Schedules.parse(query.schedule)
 
     const medication = await prisma.medication.findMany({
+        take: limit,
+        skip: offset,
+        orderBy: { id: "asc" },
         where: {
             schedule: parsedSchedule
         }
@@ -109,8 +119,12 @@ export const getTransactions = async (req: Request, res: Response) => {
     const query = req.query
 
     const { type, medicationId } = TransactionQuery.parse(query)
+    const { offset, limit } = Pagination.parse(query)
     
     const transactions = await prisma.transaction.findMany({
+        take: limit,
+        skip: offset,
+        orderBy: { id: "desc" },
         where: {
             ...(type && { type }),
             ...(medicationId && { medicationId })
@@ -121,15 +135,25 @@ export const getTransactions = async (req: Request, res: Response) => {
 }
 
 export const getAuditLog = async (req: Request, res: Response) => {
-    const { entityType } = req.query;
-    if(!entityType){
-        const allAuditLogs = await prisma.auditLog.findMany()
+    const query = req.query;
+
+    const { offset, limit } = Pagination.parse(query)
+
+    if(!query.entityType){
+        const allAuditLogs = await prisma.auditLog.findMany({
+            take: limit,
+            skip: offset,
+            orderBy: { id: "desc" }
+        })
         return res.status(200).json(allAuditLogs)
     }
     
-    const parsedEntityType = EntityType.parse(entityType)
+    const parsedEntityType = EntityType.parse(query.entityType)
 
     const auditLogs = await prisma.auditLog.findMany({
+        take: limit,
+        skip: offset,
+        orderBy: { id: "desc" },
         where: {
            entityType: parsedEntityType
         }
