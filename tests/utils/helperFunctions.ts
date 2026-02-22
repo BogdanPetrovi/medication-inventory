@@ -8,4 +8,8 @@ export const setUpDefaultTransactionMocks = () => {
   prisma.medication.update.mockResolvedValue(mockedUpdatedMedication)
   prisma.transaction.create.mockResolvedValue(mockedTransaction)
   prisma.auditLog.create.mockResolvedValue({} as AuditLog)
+
+  prisma.$transaction.mockImplementation(async (cb) => {
+    return await cb (prisma)
+  })
 }

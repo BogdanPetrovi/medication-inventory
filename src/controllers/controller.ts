@@ -49,7 +49,6 @@ export const postTransaction = async (req: Request, res: Response) => {
     if(transactionData.nurseId === transactionData.witnessId)
         throw new Error("Nurse id and witness id has to be different", { cause: "400" })
 
-
     const nurse = await prisma.user.findUnique({ where: { id: transactionData.nurseId } })
     const witness = await prisma.user.findUnique({ where: { id: transactionData.witnessId } })
     if (!nurse || nurse.role !== "NURSE") 
@@ -69,49 +68,44 @@ export const postTransaction = async (req: Request, res: Response) => {
             throw new Error("There is not enough quantity in stock", { cause: "409" })
     }
 
-    if(transactionData.type !== "WASTE"){
-        const changeStock = await prisma.medication.update({
-            where: {
-                id: transactionData.medicationId
-            },
+    const newStockQuantity = calculateNewQuantity({ type: transactionData.type, quantity: transactionData.quantity, currentQuantity: medication.currentStockQuantity })
+
+    await prisma.$transaction(async (tx) => {
+
+        if(transactionData.type !== 'WASTE'){
+            await tx.medication.update({
+                where:{ id: transactionData.medicationId },
+                data: { currentStockQuantity: newStockQuantity }
+            })
+        }
+
+        const createdTransaction = await tx.transaction.create({
             data: {
-                currentStockQuantity: calculateNewQuantity({ 
-                    type: transactionData.type, 
-                    quantity: transactionData.quantity, 
-                    currentQuantity: medication.currentStockQuantity })
+                medicationId: transactionData.medicationId,
+                nurseId: transactionData.nurseId,
+                witnessId: transactionData.witnessId,
+                type: transactionData.type,
+                quantity: transactionData.quantity,
+                notes: transactionData.notes
             }
         })
-    }
 
-    const createTransaction = await prisma.transaction.create({
-        data: {
-            medicationId: transactionData.medicationId,
-            nurseId: transactionData.nurseId,
-            witnessId: transactionData.witnessId,
-            type: transactionData.type,
-            quantity: transactionData.quantity,
-            notes: transactionData.notes
-        }
-    })
-
-    const createAuditLog = await prisma.auditLog.create({
-        data: {
-            action: "CREATED_TRANSACTION",
-            entityType: "Transaction",
-            entityId: createTransaction.id,
-            performedBy: nurse.id,
-            details: {
-                oldStockQuantity: medication.currentStockQuantity,
-                newStockQuantity: calculateNewQuantity({ 
-                    type: transactionData.type, 
-                    quantity: transactionData.quantity, 
-                    currentQuantity: medication.currentStockQuantity }),
-                unit: medication.unit,
-                nurseId: nurse.id,
-                witnessId: witness.id,
-                notes: createTransaction.notes
+        await tx.auditLog.create({
+            data: {
+                action: "CREATED_TRANSACTION",
+                entityType: "Transaction",
+                entityId: createdTransaction.id,
+                performedBy: nurse.id,
+                details: {
+                    oldStockQuantity: medication.currentStockQuantity,
+                    newStockQuantity: newStockQuantity,
+                    unit: medication.unit,
+                    nurseId: nurse.id,
+                    witnessId: witness.id,
+                    notes: createdTransaction.notes
+                }
             }
-        }
+        })
     })
 
     return res.status(201).json({ message: "Successfully created transaction" })
