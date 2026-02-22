@@ -44,50 +44,44 @@ export const getSingleMedication = async (req: Request, res: Response) => {
 
 export const postTransaction = async (req: Request, res: Response) => {
     const body = req.body
-    const transactionData = Transaction.parse(body)
+    const { nurseId, witnessId, medicationId, quantity, type, notes } = Transaction.parse(body)
    
-    if(transactionData.nurseId === transactionData.witnessId)
+    if(nurseId === witnessId)
         throw new Error("Nurse id and witness id has to be different", { cause: "400" })
 
-    const nurse = await prisma.user.findUnique({ where: { id: transactionData.nurseId } })
-    const witness = await prisma.user.findUnique({ where: { id: transactionData.witnessId } })
+    const nurse = await prisma.user.findUnique({ where: { id: nurseId } })
+    const witness = await prisma.user.findUnique({ where: { id: witnessId } })
     if (!nurse || nurse.role !== "NURSE") 
         throw new Error("The nurse ID provided does not belong to a nurse", { cause: "400" })
     
     if (!witness || witness.role !== "WITNESS") 
         throw new Error("The witness ID does not belong to a witness", { cause: "400" })
-    
-
-    const medication = await prisma.medication.findUnique({ where: { id: transactionData.medicationId }})
-    if(!medication)
-        throw new Error("Medication not found", { cause: "404" })
-
-
-    if(transactionData.type === "CHECKOUT"){
-        if(transactionData.quantity > medication.currentStockQuantity)
-            throw new Error("There is not enough quantity in stock", { cause: "409" })
-    }
-
-    const newStockQuantity = calculateNewQuantity({ type: transactionData.type, quantity: transactionData.quantity, currentQuantity: medication.currentStockQuantity })
 
     await prisma.$transaction(async (tx) => {
+        const medication = await tx.medication.findUnique({ where: { id: medicationId }})
+        if(!medication)
+            throw new Error("Medication not found", { cause: "404" })
 
-        if(transactionData.type !== 'WASTE'){
+        if(type === "CHECKOUT"){
+            const updated = await tx.medication.updateMany({
+                where: { id: medicationId, currentStockQuantity: { gte: quantity } },
+                data: { currentStockQuantity: { decrement: quantity } }
+            })
+
+            if(updated.count === 0)
+                throw new Error("There is not enough quantity in stock", { cause: "409" })
+        }
+        else if(type === 'RETURN'){
             await tx.medication.update({
-                where:{ id: transactionData.medicationId },
-                data: { currentStockQuantity: newStockQuantity }
+                where:{ id: medicationId },
+                data: { currentStockQuantity: { increment: quantity } }
             })
         }
 
+        const updatedMedication = await tx.medication.findUnique({ where: { id: medicationId } })
+
         const createdTransaction = await tx.transaction.create({
-            data: {
-                medicationId: transactionData.medicationId,
-                nurseId: transactionData.nurseId,
-                witnessId: transactionData.witnessId,
-                type: transactionData.type,
-                quantity: transactionData.quantity,
-                notes: transactionData.notes
-            }
+            data: { medicationId, nurseId, witnessId, type, quantity, notes }
         })
 
         await tx.auditLog.create({
@@ -98,7 +92,7 @@ export const postTransaction = async (req: Request, res: Response) => {
                 performedBy: nurse.id,
                 details: {
                     oldStockQuantity: medication.currentStockQuantity,
-                    newStockQuantity: newStockQuantity,
+                    newStockQuantity: updatedMedication?.currentStockQuantity,
                     unit: medication.unit,
                     nurseId: nurse.id,
                     witnessId: witness.id,

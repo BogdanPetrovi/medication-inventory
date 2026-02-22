@@ -15,10 +15,10 @@ describe("Stock calculations", () => {
     const result = await Request(app).post('/api/transactions').send(mockUserTransactionBody)
 
     expect(result.status).toBe(201)
-    expect(prisma.medication.update).toHaveBeenCalledWith({
-      where: { id: mockUserTransactionBody.medicationId },
+    expect(prisma.medication.updateMany).toHaveBeenCalledWith({
+      where: { id: mockUserTransactionBody.medicationId, currentStockQuantity: { gte: mockUserTransactionBody.quantity } },
       data: {
-        currentStockQuantity: 170
+        currentStockQuantity: { decrement: mockUserTransactionBody.quantity }
       }
     })
   })
@@ -32,7 +32,7 @@ describe("Stock calculations", () => {
     expect(prisma.medication.update).toHaveBeenCalledWith({
       where: { id: mockUserTransactionBody.medicationId },
       data: {
-        currentStockQuantity: 230
+        currentStockQuantity: { increment: mockUserTransactionBody.quantity }
       }
     })
   })
@@ -43,6 +43,7 @@ describe("Stock calculations", () => {
     const result = await Request(app).post('/api/transactions').send({...mockUserTransactionBody, type: "WASTE", notes: "This are the notes"})
 
     expect(result.status).toBe(201)
+    expect(prisma.medication.updateMany).not.toHaveBeenCalled()
     expect(prisma.medication.update).not.toHaveBeenCalled()
   })
   

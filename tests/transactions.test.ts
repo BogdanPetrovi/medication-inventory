@@ -42,6 +42,7 @@ describe("Create transaction", () => {
 
   test('Failure: Not enough quantity in stock', async () => {
     setUpDefaultTransactionMocks()
+    prisma.medication.updateMany.mockResolvedValue({ count: 0 })
 
     const result = await Request(app).post('/api/transactions').send({
       ...mockUserTransactionBody,

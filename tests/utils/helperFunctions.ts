@@ -5,10 +5,11 @@ import { mockedMedication, mockedNurse, mockedTransaction, mockedUpdatedMedicati
 export const setUpDefaultTransactionMocks = () => {
   prisma.user.findUnique.mockResolvedValueOnce(mockedNurse).mockResolvedValueOnce(mockedWitness)
   prisma.medication.findUnique.mockResolvedValue(mockedMedication)
+  prisma.medication.updateMany.mockResolvedValue({ count: 1 })
   prisma.medication.update.mockResolvedValue(mockedUpdatedMedication)
   prisma.transaction.create.mockResolvedValue(mockedTransaction)
   prisma.auditLog.create.mockResolvedValue({} as AuditLog)
-
+  
   prisma.$transaction.mockImplementation(async (cb) => {
     return await cb (prisma)
   })
