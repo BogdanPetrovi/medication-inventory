@@ -1,6 +1,7 @@
 import { PrismaClientKnownRequestError, PrismaClientUnknownRequestError } from "@prisma/client/runtime/client";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import AppError from "./AppError.js";
 
 const globalErrorHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
     if(err instanceof z.ZodError){
@@ -15,8 +16,8 @@ const globalErrorHandler = (err: unknown, req: Request, res: Response, next: Nex
     if(err instanceof TypeError){
         return res.status(500).send({ message: err.message })
     }
-    if(err instanceof Error){
-        return res.status(Number(err.cause) || 500).send({ message: err.message })
+    if(err instanceof AppError){
+        return res.status(err.statusCode).send({ message: err.message })
     }
 
     console.log(err)

@@ -4,6 +4,7 @@ import { MedicationId, Schedules } from "../schemas/medications.js";
 import { Transaction, TransactionQuery } from "../schemas/transactions.js";
 import { EntityType } from "../schemas/auditlog.js";
 import { Pagination } from "../schemas/shared.js";
+import AppError from "../utils/AppError.js";
 
 export const getMedications = async (req: Request, res: Response) => {
     const query = req.query
@@ -47,7 +48,7 @@ export const getSingleMedication = async (req: Request, res: Response) => {
     })
 
     if(!medication)
-        throw new Error("Medication not found", { cause: "404" })
+        throw new AppError("Medication not found", 404)
 
     return res.status(200).json(medication)
 }
@@ -57,20 +58,20 @@ export const postTransaction = async (req: Request, res: Response) => {
     const { nurseId, witnessId, medicationId, quantity, type, notes } = Transaction.parse(body)
    
     if(nurseId === witnessId)
-        throw new Error("Nurse id and witness id has to be different", { cause: "400" })
+        throw new AppError("Nurse id and witness id has to be different", 400)
 
     const nurse = await prisma.user.findUnique({ where: { id: nurseId } })
     const witness = await prisma.user.findUnique({ where: { id: witnessId } })
     if (!nurse || nurse.role !== "NURSE") 
-        throw new Error("The nurse ID provided does not belong to a nurse", { cause: "400" })
+        throw new AppError("The nurse ID provided does not belong to a nurse", 400)
     
     if (!witness || witness.role !== "WITNESS") 
-        throw new Error("The witness ID does not belong to a witness", { cause: "400" })
+        throw new AppError("The witness ID does not belong to a witness", 400)
 
     await prisma.$transaction(async (tx) => {
         const medication = await tx.medication.findUnique({ where: { id: medicationId }})
         if(!medication)
-            throw new Error("Medication not found", { cause: "404" })
+            throw new AppError("Medication not found", 404)
 
         if(type === "CHECKOUT"){
             const updated = await tx.medication.updateMany({
@@ -79,7 +80,7 @@ export const postTransaction = async (req: Request, res: Response) => {
             })
 
             if(updated.count === 0)
-                throw new Error("There is not enough quantity in stock", { cause: "409" })
+                throw new AppError("There is not enough quantity in stock", 409)
         }
         else if(type === 'RETURN'){
             await tx.medication.update({
